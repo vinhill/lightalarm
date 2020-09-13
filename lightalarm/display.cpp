@@ -1,6 +1,8 @@
 //adapted from pixeltime example
 
 #include <PxMatrix.h>
+#include "time.h"
+#include "stdio.h"
 
 // This is how many color levels the display shows - the more the slower the update
 //#define PxMATRIX_COLOR_DEPTH 8
@@ -38,6 +40,7 @@ uint16_t myRED = display.color565(255, 0, 0);
 uint16_t myGREEN = display.color565(0, 255, 0);
 uint16_t myBLUE = display.color565(0, 0, 255);
 uint16_t myWHITE = display.color565(255, 255, 255);
+uint16_t myWARMWHITE = display.color565(255, 214, 170);
 uint16_t myYELLOW = display.color565(255, 255, 0);
 uint16_t myCYAN = display.color565(0, 255, 255);
 uint16_t myMAGENTA = display.color565(255, 0, 255);
@@ -80,17 +83,35 @@ void init_display() {
   display_update_enable(true);
 }
 
+//space in px on the left of the display for e.g. text
+#define WIDTH_SEPARATOR 30
+
 void display_loop() {
-	//TODO show date, time, uv-index, weather...
-	display.clearDisplay();
-  display.setTextColor(myCYAN);
-  display.setCursor(2,0);
-  display.print("Pixel");
-  display.setTextColor(myMAGENTA);
-  display.setCursor(2,8);
-  display.print("Time");
+	//clear text area
+	fill(0,0,WIDTH_SEPARATOR, PxMATRIX_MAX_HEIGHT, myBLACK);
+	
+	//show time
+	struct tm now;
+	if(getLocalTime(&now)) {
+		char time[6];
+		sprintf(time, "%02u:%02u", now.tm_hour, now.tm_min);
+		display.setTextColor(myCyan);
+		display.setCursor(2,0);
+		display.print(time);
+	}
+	//TODO uv-index, weather...
+}
+
+void fill(uint8_t x1, uint8_t y1, uint8_t x2, uint8_t y2, uint16_t color) {
+	for(uint8_t x = x1; x < x2; x++) {
+		for(uint8_t y = y1; y < y2; y++) {
+			display.drawPixel(x,y,color);
+		}
+	}
 }
 
 void update_alarm_intensity(uint8_t intensity) {
-	//TODO
+	//make right side bright
+	uint8_t height = PxMATRIX_MAX_HEIGHT / 255 * intensity / 2; //todo /2 to not pull too much power
+	fill(WIDTH_SEPARATOR,0,PxMATRIX_MAX_WIDTH, height, myWARMWHITE);
 }

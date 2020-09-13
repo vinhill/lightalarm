@@ -1,6 +1,7 @@
 #include <WiFi.h>
 #include "time.h"
 #include "stdio.h"
+#include <TEA5767N.h> //https://github.com/mroger/TEA5767
 
 #include "web.h"
 #include "display.h"
@@ -27,14 +28,22 @@ bool alarm_active = false;
 
 #define VOLUME_PIN 34 //GPIO34
 float freq = 106.7f;
+TEA5767N radio = TEA5767N();
 
 //after how many minutes of inactivity the esp32 will go to deepsleep
 uint8_t active_duration = 10;
 //timestamp from the last action preventing the esp from deepsleep
 time_t last_action;
 
+void log_radio() {
+	Serial.print("Freq: ");
+	Serial.print(freq);
+	Serial.print(" signal level: ");
+	Serial.println(radio.getSignalLevel());
+}
+
 //prints current time to console
-bool print_time() {
+bool log_time() {
   struct tm timeinfo;
   if(!getLocalTime(&timeinfo)){
     Serial.println("Failed to obtain time");
@@ -116,9 +125,9 @@ void setup() {
 	}
 
   //test if time can be gotten, otherwise sync via NTP
-  if (!print_time()) {
+  if (!log_time()) {
 		//sync_time(); //TODO
-    print_time();
+    log_time();
 	}
 
   //setup webpage
@@ -130,9 +139,15 @@ void setup() {
 		&active_duration,
 		&alarm_hour,
 		&alarm_minute,
-		&freq,
+		&get_freq,
+		&update_freq,
 	};
   init_webserver(config);
+	
+	//init radio
+	radio.setMonoReception();
+	radio.setStereoNoiseCancellingOn();
+	radio.selectFrequency(freq);
 	
 	//init led matrix
 	init_display();
@@ -144,6 +159,11 @@ void setup() {
 	delay(100);
 }
 
+void set_freq(float frequency) {
+	freq = frequency;
+	radio.selectFrequency(freq);
+}
+
 void loop() {
 	//check for having to go to sleep
   time_t nowstamp;
@@ -151,7 +171,8 @@ void loop() {
   if(nowstamp > last_action + active_duration * 60000 && !alarm_active) {
     go_to_sleep();
   }
-	//cheeck for having to start alarm
+	
+	//check for having to start alarm
 	struct tm now;
 	if(!getLocalTime(&now)) {
 		Serial.println("Fatal: couldn't check for alarm");
@@ -159,10 +180,13 @@ void loop() {
 		alarm_active = true;
 		time(&alarm_start);
 		intensity = intensity_min;
+		radio.setStandByOff();
+		log_radio();
 		//intensity is calculated as f(x) = intensity_scaling * duration^2 + intensity_min
 		//that way intensity increases slower at the beginning
 		intensity_scaling = (intensity_max - intensity_min) / (alarm_duration * alarm_duration);
 	}
+	
 	//maybe perform alarm step
 	if(alarm_active) {
 		float duration = (nowstamp-alarm_start) / 60000;
@@ -179,8 +203,12 @@ void loop() {
 			intensity = tmp;
 		}
 	}
+	
 	//actualize display
 	display_loop();
+	
 	//wait a bit, as actions don't have to be performed constantly
 	delay(1000);
 }
+
+//TODO switch from LED Matrix to lcd5110+lamp?

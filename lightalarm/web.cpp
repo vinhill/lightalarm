@@ -1,5 +1,6 @@
 #include <AsyncTCP.h>
 #include <ESPAsyncWebServer.h>
+#include "stdio.h"
 
 const static char webpage[] PROGMEM = R"rawliteral(
 <!doctype html>
@@ -242,11 +243,11 @@ String processor(const String& var) {
   else if(var == "active")
     return String(*config.active_duration);
   else if(var == "time") {
-		char ret[5];
+		char ret[6];
 		sprintf(ret, "%02u:%02u", *config.alarm_hour, *config.alarm_minute);
 		return String(ret);
 	} else if(var == "freq")
-    return String(*config.freq);
+    return String(config.get_freq());
   else {
 		Serial.print("Unknown preprocessor string: ");
 		Serial.println(var);

@@ -9,7 +9,8 @@ typedef struct {
 	uint8_t* active_duration;
 	uint8_t* alarm_hour;
 	uint8_t* alarm_minute;
-	float* freq;
+	void (*get_freq)(void);
+	void (*set_freq)(float freq);
 } ConfigVariables;
 
 void init_webserver();
